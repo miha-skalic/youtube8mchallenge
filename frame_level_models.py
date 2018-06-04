@@ -47,6 +47,8 @@ flags.DEFINE_string("video_level_classifier_model", "MoeModel",
 flags.DEFINE_integer("lstm_cells", 1024, "Number of LSTM cells.")
 flags.DEFINE_integer("lstm_layers", 2, "Number of LSTM layers.")
 
+from devel_models import *
+
 class FrameLevelLogisticModel(models.BaseModel):
 
   def create_model(self, model_input, vocab_size, num_frames, **unused_params):
@@ -232,5 +234,89 @@ class LstmModel(models.BaseModel):
 
     return aggregated_model().create_model(
         model_input=state[-1].h,
+        vocab_size=vocab_size,
+        **unused_params)
+
+class GRUbidirect(models.BaseModel):
+  def create_model(self, model_input, vocab_size, num_frames, **unused_params):
+    """Creates a model which uses 2 layer of GRUs to represent the video.
+    Args:
+      model_input: A 'batch_size' x 'max_frames' x 'num_features' matrix of
+                   input features.
+      vocab_size: The number of classes in the dataset.
+      num_frames: A vector of length 'batch' which indicates the number of
+           frames for each video (before padding).
+    Returns:
+      A dictionary with a tensor containing the probability predictions of the
+      model in the 'predictions' key. The dimensions of the tensor are
+      'batch_size' x 'num_classes'.
+    """
+    lstm_size = FLAGS.lstm_cells
+
+    gru_fw = tf.contrib.rnn.GRUCell(lstm_size/2)
+    gru_bw = tf.contrib.rnn.GRUCell(lstm_size/2)
+
+    stacked_lstm_fw = tf.contrib.rnn.MultiRNNCell([gru_fw])
+    stacked_lstm_bw = tf.contrib.rnn.MultiRNNCell([gru_bw])
+
+    outputs1, state1 = tf.nn.bidirectional_dynamic_rnn(stacked_lstm_fw, stacked_lstm_bw,
+                                                     model_input, sequence_length=num_frames, dtype=tf.float32)
+
+    stacked_lstm = tf.contrib.rnn.MultiRNNCell([tf.contrib.rnn.GRUCell(lstm_size)])
+
+    outputs, state = tf.nn.dynamic_rnn(stacked_lstm, tf.concat(outputs1, axis=2),
+                                       sequence_length=num_frames,
+                                       dtype=tf.float32)
+
+    aggregated_model = getattr(video_level_models,
+                               FLAGS.video_level_classifier_model)
+
+    return aggregated_model().create_model(
+        model_input=state[-1],
+        vocab_size=vocab_size,
+        **unused_params)
+
+
+class Lstmbidirect(models.BaseModel):
+
+  def create_model(self, model_input, vocab_size, num_frames, **unused_params):
+    """Creates a model which uses 2 layer of LSTMs to represent the video.
+    Args:
+      model_input: A 'batch_size' x 'max_frames' x 'num_features' matrix of
+                   input features.
+      vocab_size: The number of classes in the dataset.
+      num_frames: A vector of length 'batch' which indicates the number of
+           frames for each video (before padding).
+    Returns:
+      A dictionary with a tensor containing the probability predictions of the
+      model in the 'predictions' key. The dimensions of the tensor are
+      'batch_size' x 'num_classes'.
+    """
+    lstm_size = FLAGS.lstm_cells
+
+    lstm_fw = tf.contrib.rnn.BasicLSTMCell(lstm_size/2, forget_bias=1.0)
+    lstm_bw = tf.contrib.rnn.BasicLSTMCell(lstm_size/2, forget_bias=1.0)
+
+    stacked_lstm_fw = tf.contrib.rnn.MultiRNNCell([lstm_fw])
+    stacked_lstm_bw = tf.contrib.rnn.MultiRNNCell([lstm_bw])
+
+    outputs1, state1 = tf.nn.bidirectional_dynamic_rnn(stacked_lstm_fw, stacked_lstm_bw,
+                                                     model_input, sequence_length=num_frames, dtype=tf.float32)
+
+    stacked_lstm = tf.contrib.rnn.MultiRNNCell(
+            [
+                tf.contrib.rnn.BasicLSTMCell(
+                    lstm_size, forget_bias=1.0)
+                ])
+
+    outputs, state = tf.nn.dynamic_rnn(stacked_lstm, tf.concat(outputs1, axis=2),
+                                       sequence_length=num_frames,
+                                       dtype=tf.float32)
+
+    aggregated_model = getattr(video_level_models,
+                               FLAGS.video_level_classifier_model)
+
+    return aggregated_model().create_model(
+        model_input=state[-1].c,
         vocab_size=vocab_size,
         **unused_params)

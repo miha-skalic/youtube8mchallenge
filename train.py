@@ -104,6 +104,11 @@ if __name__ == "__main__":
       "Whether to write the device on which every op will run into the "
       "logs on startup.")
 
+  # Custom flags
+  flags.DEFINE_bool(
+      "incl_val", False,
+      "True if you want to train with Validation data.")
+
 def validate_class_name(flag_value, category, modules, expected_superclass):
   """Checks that the given string matches a class of the expected type.
 
@@ -158,9 +163,13 @@ def get_input_data_tensors(reader,
   logging.info("Using batch size of " + str(batch_size) + " for training.")
   with tf.name_scope("train_input"):
     files = gfile.Glob(data_pattern)
+
     if not files:
       raise IOError("Unable to find training files. data_pattern='" +
                     data_pattern + "'.")
+    if FLAGS.incl_val:
+      print("Including Validation data!")
+      files = files + gfile.Glob(data_pattern.replace("train", "validate"))
     logging.info("Number of training files: %s.", str(len(files)))
     filename_queue = tf.train.string_input_producer(
         files, num_epochs=num_epochs, shuffle=True)
@@ -480,7 +489,7 @@ class Trainer(object):
                  >= self.export_model_steps))
 
             if self.is_master and time_to_export:
-              self.export_model(global_step_val, sv.saver, sv.save_path, sess)
+              # self.export_model(global_step_val, sv.saver, sv.save_path, sess)
               self.last_model_export_step = global_step_val
           else:
             logging.info("training step " + str(global_step_val) + " | Loss: " +
