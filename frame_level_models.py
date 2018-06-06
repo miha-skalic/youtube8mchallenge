@@ -237,6 +237,7 @@ class LstmModel(models.BaseModel):
         vocab_size=vocab_size,
         **unused_params)
 
+
 class GRUbidirect(models.BaseModel):
   def create_model(self, model_input, vocab_size, num_frames, **unused_params):
     """Creates a model which uses 2 layer of GRUs to represent the video.
@@ -275,6 +276,82 @@ class GRUbidirect(models.BaseModel):
         model_input=state[-1],
         vocab_size=vocab_size,
         **unused_params)
+
+
+def bidirect_process(pipe_input, n_cells, num_frames, scope_name):
+    with tf.variable_scope(scope_name):
+        gru_fw = tf.contrib.rnn.GRUCell(n_cells/2)
+        gru_bw = tf.contrib.rnn.GRUCell(n_cells/2)
+
+        stacked_lstm_fw = tf.contrib.rnn.MultiRNNCell([gru_fw])
+        stacked_lstm_bw = tf.contrib.rnn.MultiRNNCell([gru_bw])
+
+        outputs1, state1 = tf.nn.bidirectional_dynamic_rnn(stacked_lstm_fw, stacked_lstm_bw,
+                                                           pipe_input, sequence_length=num_frames, dtype=tf.float32)
+
+        stacked_lstm = tf.contrib.rnn.MultiRNNCell([tf.contrib.rnn.GRUCell(n_cells)])
+
+        outputs, state = tf.nn.dynamic_rnn(stacked_lstm, tf.concat(outputs1, axis=2),
+                                           sequence_length=num_frames,
+                                           dtype=tf.float32)
+    return outputs, state
+
+
+class GRUbidirect_branchedBN(models.BaseModel):
+    def create_model(self,
+                     model_input,
+                     vocab_size,
+                     num_frames,
+                     is_training=True,
+                     **unused_params):
+        video_in = model_input[:, :, :1024]
+        audio_in = model_input[:, :, 1024:]
+
+        video_bn = slim.batch_norm(
+            video_in,
+            center=True,
+            scale=True,
+            is_training=is_training,
+            scope="video_input_bn")
+        audio_bn = slim.batch_norm(
+            audio_in,
+            center=True,
+            scale=True,
+            is_training=is_training,
+            scope="audio_input_bn")
+
+        # Transform input
+        activation_video = slim.fully_connected(video_bn, 1024, activation_fn=None, biases_initializer=None)
+        activation_audio = slim.fully_connected(audio_bn, 128, activation_fn=None, biases_initializer=None)
+
+        activation_video = slim.batch_norm(
+            activation_video,
+            center=True,
+            scale=True,
+            is_training=is_training,
+            scope="video_cluster_bn")
+        activation_audio = slim.batch_norm(
+            activation_audio,
+            center=True,
+            scale=True,
+            is_training=is_training,
+            scope="audio_cluster_bn")
+
+        activation_video = tf.nn.relu6(activation_video)
+        activation_audio = tf.nn.relu6(activation_audio)
+
+        outputs_video, state_video = bidirect_process(activation_video, 1024, num_frames, scope_name="video")
+        outputs_audio, state_audio = bidirect_process(activation_audio, 128, num_frames, scope_name="audio")
+
+        state = tf.concat([state_video[-1], state_audio[-1]], axis=1)
+
+        aggregated_model = getattr(video_level_models,
+                                   FLAGS.video_level_classifier_model)
+
+        return aggregated_model().create_model(
+            model_input=state,
+            vocab_size=vocab_size,
+            **unused_params)
 
 
 class Lstmbidirect(models.BaseModel):

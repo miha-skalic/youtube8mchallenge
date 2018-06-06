@@ -49,8 +49,9 @@ python train.py \
   --start_new_model
 ```
 
-# NetVLAD gatting 
-Added June 5th
+
+## NetVLAD gatting 
+
 Set path to save folder and record folder
 
 ```
@@ -78,4 +79,21 @@ python train.py \
   --moe_prob_gating=True \
   --num_gpu 2 \
   --num_epochs=8
+```
+
+## BN dual-path GRU 
+```
+python train.py \
+  --train_data_pattern="$RECORDPAT/*.tfrecord" \
+  --model=GRUbidirect_branchedBN \
+  --video_level_classifier_model="LogisticModel" \
+  --frame_features \
+  --feature_names="rgb, audio" \
+  --feature_sizes="1024, 128" \
+  --batch_size=256 \
+  --train_dir="$SAVEPATH/GRU_BN_dualpath" \
+  --base_learning_rate=0.0002 \
+  --num_epochs=7 \
+  --num_gpu 2 \
+  --num_readers 12
 ```
