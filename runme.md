@@ -97,3 +97,20 @@ python train.py \
   --num_gpu 2 \
   --num_readers 12
 ```
+
+## DBoF model
+```
+python train.py \
+  --train_data_pattern="$RECORDPAT/*.tfrecord" \
+  --model=DbofModel \
+  --video_level_classifier_model="LogisticModel" \
+  --frame_features \
+  --feature_names="rgb, audio" \
+  --feature_sizes="1024, 128" \
+  --batch_size=512 \
+  --train_dir="$SAVEPATH/DBoFv0" \
+  --num_epochs=7 \
+  --num_gpu 2 \
+  --iterations=40 \
+  --num_readers 12
+```
