@@ -239,7 +239,13 @@ class LstmModel(models.BaseModel):
 
 
 class GRUbidirect(models.BaseModel):
-  def create_model(self, model_input, vocab_size, num_frames, **unused_params):
+  def create_model(self,
+                   model_input,
+                   vocab_size,
+                   num_frames,
+                   video_level_classifier_model=None,
+                   lstm_size=None,
+                   **unused_params):
     """Creates a model which uses 2 layer of GRUs to represent the video.
     Args:
       model_input: A 'batch_size' x 'max_frames' x 'num_features' matrix of
@@ -252,7 +258,10 @@ class GRUbidirect(models.BaseModel):
       model in the 'predictions' key. The dimensions of the tensor are
       'batch_size' x 'num_classes'.
     """
-    lstm_size = FLAGS.lstm_cells
+
+    # Use predefined and do not read from flags
+    if not lstm_size:
+        lstm_size = FLAGS.lstm_cells
 
     gru_fw = tf.contrib.rnn.GRUCell(lstm_size/2)
     gru_bw = tf.contrib.rnn.GRUCell(lstm_size/2)
@@ -269,8 +278,10 @@ class GRUbidirect(models.BaseModel):
                                        sequence_length=num_frames,
                                        dtype=tf.float32)
 
+    if not video_level_classifier_model:
+        video_level_classifier_model = FLAGS.video_level_classifier_model
     aggregated_model = getattr(video_level_models,
-                               FLAGS.video_level_classifier_model)
+                               video_level_classifier_model)
 
     return aggregated_model().create_model(
         model_input=state[-1],

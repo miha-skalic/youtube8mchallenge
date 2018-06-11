@@ -31,6 +31,7 @@ from tensorflow import gfile
 from tensorflow import logging
 from tensorflow.python.client import device_lib
 import utils
+from tensorflow.python import pywrap_tensorflow
 
 FLAGS = flags.FLAGS
 
@@ -108,6 +109,12 @@ if __name__ == "__main__":
   flags.DEFINE_bool(
       "incl_val", False,
       "True if you want to train with Validation data.")
+
+  flags.DEFINE_string("ema_source", "",
+                      "Pretrained model that will be used as EMA source. Must be type: "
+                      "'/path/to/model/inference_model'")
+
+  flags.DEFINE_float("ema_halflife", 3000.0, "halflife time/steps")
 
 def validate_class_name(flag_value, category, modules, expected_superclass):
   """Checks that the given string matches a class of the expected type.
@@ -273,6 +280,7 @@ def build_graph(reader,
   tower_predictions = []
   tower_label_losses = []
   tower_reg_losses = []
+
   for i in range(num_towers):
     # For some reason these 'with' statements can't be combined onto the same
     # line. They have to be nested.
@@ -345,6 +353,33 @@ def build_graph(reader,
   tf.add_to_collection("num_frames", num_frames)
   tf.add_to_collection("labels", tf.cast(labels_batch, tf.float32))
   tf.add_to_collection("train_op", train_op)
+
+  if FLAGS.ema_source:
+      # You want BN variables as well as non slim variables!
+      model_vars = set(tf.trainable_variables()).union(slim.get_model_variables())
+
+      ema = tf.train.ExponentialMovingAverage(decay=1.0 - 1.0 / FLAGS.ema_halflife)
+      ema_op = ema.apply(model_vars)
+      logging.info("####LOADING EMA VARIABLES####")
+      logging.info("model_vars:")
+      logging.info(" || ".join([str(x) for x in model_vars]))
+      ema_vars = [ema.average(x) for x in model_vars]
+      ema_vars_pair_dict = {ema.average_name(x): x.op.name for x in model_vars}
+
+      logging.info("ema_vars_pair_dict:")
+      for x, y in ema_vars_pair_dict.items():
+          logging.info(x + ': ' + y)
+      logging.info("##################")
+      for v in ema_vars:
+          tf.summary.histogram(v.op.name, v)
+
+      # tf.add_to_collection(tf.GraphKeys.UPDATE_OPS, ema_op)
+      [tf.add_to_collection("updatable_vars", x) for x in model_vars]
+      [tf.add_to_collection("ema_vars", x) for x in ema_vars]
+      tf.add_to_collection("ema_op", ema_op)
+      # Load in the existing variables
+      def_vars = tf.get_collection("updatable_vars")
+      ema_vars = tf.get_collection("ema_vars")
 
 
 class Trainer(object):
@@ -432,6 +467,11 @@ class Trainer(object):
         labels = tf.get_collection("labels")[0]
         train_op = tf.get_collection("train_op")[0]
         init_op = tf.global_variables_initializer()
+        if FLAGS.ema_source:
+            # Here the variables still exsist
+            ema_op = tf.get_collection("ema_op")[0]
+            def_vars = tf.get_collection("updatable_vars")
+            ema_vars = tf.get_collection("ema_vars")
 
     sv = tf.train.Supervisor(
         graph,
@@ -445,12 +485,24 @@ class Trainer(object):
 
     logging.info("%s: Starting managed session.", task_as_string(self.task))
     with sv.managed_session(target, config=self.config) as sess:
+
+      if FLAGS.ema_source:
+        logging.info("%s: Entering training loop.", task_as_string(self.task))
+        sess.graph._unsafe_unfinalize()
+        ckpt_reader = pywrap_tensorflow.NewCheckpointReader(FLAGS.ema_source)
+        for xtensor, ematensor in zip(def_vars, ema_vars):
+            src_tensor = ckpt_reader.get_tensor(xtensor.name.split(":")[0])
+            sess.run(tf.assign(xtensor, src_tensor))
+            sess.run(tf.assign(ematensor, src_tensor))
       try:
         logging.info("%s: Entering training loop.", task_as_string(self.task))
         while (not sv.should_stop()) and (not self.max_steps_reached):
           batch_start_time = time.time()
           _, global_step_val, loss_val, predictions_val, labels_val = sess.run(
               [train_op, global_step, loss, predictions, labels])
+          if FLAGS.ema_source:  # Update EMA if needed
+              _ = sess.run(ema_op)
+
           seconds_per_batch = time.time() - batch_start_time
           examples_per_second = labels_val.shape[0] / seconds_per_batch
 
@@ -662,6 +714,11 @@ def task_as_string(task):
   return "/job:%s/task:%s" % (task.type, task.index)
 
 def main(unused_argv):
+  # Safety first
+  if FLAGS.ema_source:
+      assert not os.path.isdir(FLAGS.train_dir), "For your safety create a new model."
+      assert os.path.isfile(FLAGS.ema_source + ".meta"), "Unkown EMA seed model."
+
   # Load the environment.
   env = json.loads(os.environ.get("TF_CONFIG", "{}"))
 

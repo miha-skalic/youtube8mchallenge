@@ -29,6 +29,7 @@ from tensorflow import flags
 from tensorflow import gfile
 from tensorflow import logging
 import utils
+from tensorflow.python import pywrap_tensorflow
 
 FLAGS = flags.FLAGS
 
@@ -51,6 +52,8 @@ if __name__ == "__main__":
                        "How many threads to use for reading input files.")
   flags.DEFINE_boolean("run_once", False, "Whether to run eval only once.")
   flags.DEFINE_integer("top_k", 20, "How many predictions to output per video.")
+
+  flags.DEFINE_boolean("use_EMA", False, "Whether to use EMA shadow variables.")
 
 
 def find_class_by_name(name, modules):
@@ -173,7 +176,7 @@ def get_latest_checkpoint():
 
 def evaluation_loop(video_id_batch, prediction_batch, label_batch, loss,
                     summary_op, saver, summary_writer, evl_metrics,
-                    last_global_step_val):
+                    last_global_step_val, ema_tensors):
   """Run the evaluation loop once.
 
   Args:
@@ -192,8 +195,10 @@ def evaluation_loop(video_id_batch, prediction_batch, label_batch, loss,
   """
 
   global_step_val = -1
+  latest_checkpoint = get_latest_checkpoint()
+
   with tf.Session() as sess:
-    latest_checkpoint = get_latest_checkpoint()
+
     if latest_checkpoint:
       logging.info("Loading checkpoint for eval: " + latest_checkpoint)
       # Restores from checkpoint
@@ -201,6 +206,18 @@ def evaluation_loop(video_id_batch, prediction_batch, label_batch, loss,
       # Assuming model_checkpoint_path looks something like:
       # /my-favorite-path/yt8m_train/model.ckpt-0, extract global_step from it.
       global_step_val = os.path.basename(latest_checkpoint).split("-")[-1]
+
+      if FLAGS.use_EMA:
+        assert len(ema_tensors) > 0, "Tensors got lost."
+        logging.info("####################")
+        logging.info("USING EMA VARIABLES.")
+        logging.info("####################")
+
+        reader = pywrap_tensorflow.NewCheckpointReader(latest_checkpoint)
+        for stensor in ema_tensors:
+          destination_t = sess.graph.get_tensor_by_name("/".join(stensor.split("/")[:-1]) + ":0")
+          ema_source = reader.get_tensor(stensor.split(":")[0])
+          sess.run(tf.assign(destination_t, ema_source))
 
       # Save model
       saver.save(sess, os.path.join(FLAGS.train_dir, "inference_model"))
@@ -277,6 +294,21 @@ def evaluation_loop(video_id_batch, prediction_batch, label_batch, loss,
 
 
 def evaluate():
+
+  ema_tensors = None
+
+  if FLAGS.use_EMA:
+    latest_checkpoint = get_latest_checkpoint()
+    assert latest_checkpoint, "No checkpoint found"
+
+    with tf.device("/cpu:0"):
+        saver = tf.train.import_meta_graph(latest_checkpoint + ".meta", clear_devices=True)
+        # saver.restore(sess, "../trained_models/attention_frames_v0_EMA/model.ckpt-15512")
+    xvars = tf.get_collection("ema_vars")
+    assert len(xvars) > 0, "No EMA shadow variables found. Did you train with EMA?"
+    ema_tensors = list(set([x.name for x in xvars]))
+    tf.reset_default_graph()
+
   tf.set_random_seed(0)  # for reproducibility
 
   # Write json of flags
@@ -331,7 +363,7 @@ def evaluate():
       last_global_step_val = evaluation_loop(video_id_batch, prediction_batch,
                                              label_batch, loss, summary_op,
                                              saver, summary_writer, evl_metrics,
-                                             last_global_step_val)
+                                             last_global_step_val, ema_tensors)
       if FLAGS.run_once:
         break
 
@@ -344,4 +376,3 @@ def main(unused_argv):
 
 if __name__ == "__main__":
   app.run()
-
