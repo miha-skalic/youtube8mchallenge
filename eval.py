@@ -217,7 +217,10 @@ def evaluation_loop(video_id_batch, prediction_batch, label_batch, loss,
         for stensor in ema_tensors:
           destination_t = sess.graph.get_tensor_by_name("/".join(stensor.split("/")[:-1]) + ":0")
           ema_source = reader.get_tensor(stensor.split(":")[0])
-          sess.run(tf.assign(destination_t, ema_source))
+
+          # Session to take care of
+          destination_t.load(ema_source, session=sess)
+          # sess.run(tf.assign(destination_t, ema_source))
 
       # Save model
       saver.save(sess, os.path.join(FLAGS.train_dir, "inference_model"))

@@ -492,8 +492,11 @@ class Trainer(object):
         ckpt_reader = pywrap_tensorflow.NewCheckpointReader(FLAGS.ema_source)
         for xtensor, ematensor in zip(def_vars, ema_vars):
             src_tensor = ckpt_reader.get_tensor(xtensor.name.split(":")[0])
-            sess.run(tf.assign(xtensor, src_tensor))
-            sess.run(tf.assign(ematensor, src_tensor))
+            # Loading does not take up graoh space
+            xtensor.load(src_tensor, session=sess)
+            ematensor.load(src_tensor, session=sess)
+            # sess.run(tf.assign(xtensor, src_tensor))
+            # sess.run(tf.assign(ematensor, src_tensor))
       try:
         logging.info("%s: Entering training loop.", task_as_string(self.task))
         while (not sv.should_stop()) and (not self.max_steps_reached):
