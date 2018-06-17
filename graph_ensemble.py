@@ -67,7 +67,12 @@ with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
 
     # Save the model
     os.makedirs(save_folder)
-    saver = tf.train.Saver(tf.global_variables())
+
+    # By quantizing we might end up with uninitialized variables.
+    uninit = set(sess.run(tf.report_uninitialized_variables()))
+    used_vars = [v for v in tf.global_variables() if v.name.split(':')[0] not in uninit]
+
+    saver = tf.train.Saver(used_vars)
     saver.save(sess, os.path.join(save_folder, "inference_model"))
 
     # copy flags

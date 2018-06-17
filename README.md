@@ -20,3 +20,25 @@ python graph_ensemble.py
   --save_folder "/path/to/joined_model"
   --weights 0.7 0.3
 ```
+
+### 3. Quantization 
+
+there are the 3 ways to reduce model size:
+1. converting variables to float16 (approx. 1/2 the size)
+2. 8bit uniform min-max quantization (approx. 1/4 the size)
+3. 8bit quantization with where quants are determined by k-means clustering (approx. 1/4 the size)
+
+Sample usage
+```
+python quantize.py \
+  --transform_type quant_uniform \
+  --model ../path/to/modelX/inference_model \
+  --min_elements 17000 \
+  --savefile ../path/to/modelX/inference_model_uniformquant
+```
+by default only vaiables with more than 17000 parameters will be quantized. Use parameter `--min_elements` to adjust 
+the threshold. 
+
+
+### 4. fake_utls
+In this subfolder you will find commands to clear redundant test samples. Follow the readme in the folder.
