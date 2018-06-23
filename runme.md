@@ -114,3 +114,25 @@ python train.py \
   --iterations=40 \
   --num_readers 12
 ```
+
+# RV netVLAD
+
+```
+python train.py \
+  --train_data_pattern="$RECORDPAT/*.tfrecord" \
+  --model=NetVLADModelLF \
+  --train_dir="$SAVEPATH/gatedlightvladLF_v0" \
+  --frame_features=True --feature_names="rgb,audio" \
+  --feature_sizes="1024,128" \
+  --batch_size=80 --base_learning_rate=0.0002 \
+  --netvlad_cluster_size=256 \
+  --netvlad_hidden_size=1024 \
+  --moe_l2=1e-6 --iterations=300 \
+  --learning_rate_decay=0.8 \
+  --netvlad_relu=False \
+  --gating=True \
+  --moe_prob_gating=True \
+  --lightvlad=True \
+  --num_gpu 2 \
+  --num_epochs=7 \
+```
