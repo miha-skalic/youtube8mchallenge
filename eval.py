@@ -54,6 +54,8 @@ if __name__ == "__main__":
   flags.DEFINE_integer("top_k", 20, "How many predictions to output per video.")
 
   flags.DEFINE_boolean("use_EMA", False, "Whether to use EMA shadow variables.")
+  flags.DEFINE_boolean("build_only", False, "Whether to build graph, but not evaluate. "
+                       "This will build graph without the coordinators.")
 
 
 def find_class_by_name(name, modules):
@@ -121,11 +123,20 @@ def build_graph(reader,
   """
 
   global_step = tf.Variable(0, trainable=False, name="global_step")
-  video_id_batch, model_input_raw, labels_batch, num_frames = get_input_evaluation_tensors(  # pylint: disable=g-line-too-long
-      reader,
-      eval_data_pattern,
-      batch_size=batch_size,
-      num_readers=num_readers)
+
+  if not FLAGS.build_only:
+    video_id_batch, model_input_raw, labels_batch, num_frames = get_input_evaluation_tensors(  # pylint: disable=g-line-too-long
+        reader,
+        eval_data_pattern,
+        batch_size=batch_size,
+        num_readers=num_readers)
+  # TODO: this only works for FRAME image+auido input
+  else:
+    video_id_batch = tf.placeholder(tf.string, shape=(None, ), name="xvideo_id_batch")
+    model_input_raw = tf.placeholder(tf.float32, shape=(None, 300, 1152), name="xmodel_input_raw")
+    labels_batch = tf.placeholder(tf.bool, shape=(None, 3862), name="xlabels_batch")
+    num_frames = tf.placeholder(tf.int32, shape=(None), name="xnum_frames")
+
   tf.summary.histogram("model_input_raw", model_input_raw)
 
   feature_dim = len(model_input_raw.get_shape()) - 1
@@ -224,6 +235,9 @@ def evaluation_loop(video_id_batch, prediction_batch, label_batch, loss,
 
       # Save model
       saver.save(sess, os.path.join(FLAGS.train_dir, "inference_model"))
+      if FLAGS.build_only:
+          logging.info("Inference graph built. Existing now.")
+          exit()
     else:
       logging.info("No checkpoint file found.")
       return global_step_val

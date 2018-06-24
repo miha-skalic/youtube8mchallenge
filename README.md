@@ -42,3 +42,9 @@ the threshold.
 
 ### 4. fake_utls
 In this subfolder you will find commands to clear redundant test samples. Follow the readme in the folder.
+
+
+### 5. Changes to eval.py
+
+If `build_only` flag is set the script will compile the model (you still have to provide the parameters) without the data providers. 
+This is useful if you want to run models on other machines. In this case evaluation loop will not run. 
