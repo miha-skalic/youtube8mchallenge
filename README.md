@@ -48,3 +48,13 @@ In this subfolder you will find commands to clear redundant test samples. Follow
 
 If `build_only` flag is set the script will compile the model (you still have to provide the parameters) without the data providers. 
 This is useful if you want to run models on other machines. In this case evaluation loop will not run. 
+
+
+The default eval.py will not work on custom quantized and or ensembled graphs. For this use `eval_custom.py`:
+
+```
+python eval_custom.py \
+  --model_file="../trained_models/xxx/inference_model"  \
+  --batch_size 150 \
+  --eval_data_pattern="../data/frame/validate/*A.tfrecord"
+```
