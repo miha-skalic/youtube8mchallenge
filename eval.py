@@ -225,13 +225,15 @@ def evaluation_loop(video_id_batch, prediction_batch, label_batch, loss,
         logging.info("####################")
 
         reader = pywrap_tensorflow.NewCheckpointReader(latest_checkpoint)
-        for stensor in ema_tensors:
-          destination_t = sess.graph.get_tensor_by_name("/".join(stensor.split("/")[:-1]) + ":0")
-          ema_source = reader.get_tensor(stensor.split(":")[0])
+        global_vars = tf.global_variables()
 
+        for stensor in ema_tensors:
+          destination_t = [x for x in global_vars if x.name == stensor.replace("/ExponentialMovingAverage:", ":")]
+          assert len(destination_t) == 1
+          destination_t = destination_t[0]
+          ema_source = reader.get_tensor(stensor.split(":")[0])
           # Session to take care of
           destination_t.load(ema_source, session=sess)
-          # sess.run(tf.assign(destination_t, ema_source))
 
       # Save model
       saver.save(sess, os.path.join(FLAGS.train_dir, "inference_model"))
