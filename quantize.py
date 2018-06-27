@@ -9,13 +9,15 @@ from scipy.cluster.vq import vq
 from sklearn.cluster import KMeans
 import os
 from tqdm import tqdm
+import pandas as pd
 
 parser = argparse.ArgumentParser(description='Quantization of graphs.')
 parser.add_argument('--min_elements', action="store", type=int, default=17000,
                     help="Only variables with more than this many elements will be converted.")
 parser.add_argument('--transform_type', action="store", type=str, required=True, choices=["float16",
                                                                                           "quant_uniform",
-                                                                                          "quant_kmeans"])
+                                                                                          "quant_kmeans",
+                                                                                          "quant_quantile"])
 parser.add_argument('--savefile', action="store", type=str, required=True)
 parser.add_argument('--model', action="store", type=str, required=True,
                     help="Input_model. models must be type '/path/to/model/inference_model'")
@@ -25,7 +27,7 @@ transform_type = params.transform_type
 min_elements = params.min_elements
 model = params.model
 output_model = params.savefile
-assert transform_type in ["float16", "quant_uniform", "quant_kmeans"], "Unknown transformation!"
+assert transform_type in ["float16", "quant_uniform", "quant_kmeans", "quant_quantile"], "Unknown transformation!"
 assert os.path.isfile(model + ".meta"), "Input model does not exist!"
 assert not os.path.isfile(output_model + ".meta"), "Model output exsist will not overwrite!"
 
@@ -117,6 +119,29 @@ for var_name, c_np in tqdm(cast_variables.items()):
 
         loadings.append([quant_var, quants.astype(np.uint8)])
         loadings.append([space_var, space.astype(np.float32)])
+
+    elif transform_type == "quant_quantile":
+        quant_var = tf.Variable(tf.zeros(c_np.shape, tf.uint8),
+                                dtype=tf.uint8,
+                                name=var_name + "_quants")
+        space_var = tf.Variable(tf.zeros(256, tf.float32),
+                                dtype=tf.float32,
+                                name=var_name + "_space")
+        output = tf.gather(space_var, tf.cast(quant_var, tf.int32))
+        ge.swap_inputs(tf_var.value(), output)
+
+        mat_shape = c_np.shape
+        c_np = c_np.flatten()
+
+        ranges = np.linspace(0., 1., 256, endpoint=True)
+        centers = pd.Series(c_np).quantile(ranges)
+
+        space = np.array(centers)
+        quants = vq(c_np, space)[0].reshape(mat_shape)
+
+        loadings.append([quant_var, quants.astype(np.uint8)])
+        loadings.append([space_var, space.astype(np.float32)])
+
     else:
         raise
 
