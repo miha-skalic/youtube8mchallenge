@@ -71,8 +71,7 @@ if __name__ == "__main__":
                        "Flag only applies if GPUs are installed")
   flags.DEFINE_integer("batch_size", 1024,
                        "How many examples to process per batch for training.")
-  flags.DEFINE_string("label_loss", "CrossEntropyLoss",
-                      "Which loss function to use for training the model.")
+
   flags.DEFINE_float(
       "regularization_penalty", 1.0,
       "How much weight to give to the regularization loss (the label loss has "
@@ -673,7 +672,6 @@ class Trainer(object):
   def build_model(self, model, reader):
     """Find the model and build the graph."""
 
-    label_loss_fn = find_class_by_name(FLAGS.label_loss, [losses])()
     optimizer_class = find_class_by_name(FLAGS.optimizer, [tf.train])
 
     build_graph(reader=reader,
@@ -681,7 +679,6 @@ class Trainer(object):
                  optimizer_class=optimizer_class,
                  clip_gradient_norm=FLAGS.clip_gradient_norm,
                  train_data_pattern=FLAGS.train_data_pattern,
-                 label_loss_fn=label_loss_fn,
                  base_learning_rate=FLAGS.base_learning_rate,
                  learning_rate_decay=FLAGS.learning_rate_decay,
                  learning_rate_decay_examples=FLAGS.learning_rate_decay_examples,
