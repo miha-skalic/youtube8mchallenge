@@ -50,6 +50,24 @@ class CrossEntropyLoss(BaseLoss):
       cross_entropy_loss = tf.negative(cross_entropy_loss)
       return tf.reduce_mean(tf.reduce_sum(cross_entropy_loss, 1))
 
+class MixedCrossEntropyLoss(BaseLoss):
+  """Calculate the cross entropy loss between the predictions and labels.
+  """
+
+  def calculate_loss(self, predictions, labels, orig_prediction, lambda_factor=0.5 ,**unused_params):
+    with tf.name_scope("loss_xent"):
+      epsilon = 10e-6
+      float_labels = tf.cast(labels, tf.float32)
+      cross_entropy_loss = float_labels * tf.log(predictions + epsilon) + (
+          1 - float_labels) * tf.log(1 - predictions + epsilon)
+      cross_entropy_loss = tf.negative(cross_entropy_loss)
+
+      pred_cross_entropy_loss = orig_prediction * tf.log(predictions + epsilon) + (
+                                                                            1 - orig_prediction) * tf.log(
+          1 - predictions + epsilon)
+      pred_cross_entropy_loss = tf.negative(pred_cross_entropy_loss)
+      total_loss = lambda_factor * pred_cross_entropy_loss + (1 - lambda_factor) * cross_entropy_loss
+      return tf.reduce_mean(tf.reduce_sum(total_loss, 1))
 
 class HingeLoss(BaseLoss):
   """Calculate the hinge loss between the predictions and labels.
