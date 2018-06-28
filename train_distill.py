@@ -295,7 +295,7 @@ def build_graph(reader,
           with (tf.variable_scope("ref_model")):
             latest_checkpoint = "../trained_models/quants/1/inference_model"
             meta_graph_location = latest_checkpoint + ".meta"
-            ref_saver = tf.train.import_meta_graph(meta_graph_location)
+            ref_saver = tf.train.import_meta_graph(meta_graph_location, clear_devices=True)
 
             ref_variables = [i for i in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='distill_net')]
             all_ref_variables = all_ref_variables + ref_variables
