@@ -472,7 +472,7 @@ class Trainer(object):
         "feature_sizes": FLAGS.feature_sizes,
         "feature_names": FLAGS.feature_names,
         "frame_features": FLAGS.frame_features,
-        "label_loss": FLAGS.label_loss,
+        "label_loss": "CrossEntropyLoss",
     }
     flags_json_path = os.path.join(FLAGS.train_dir, "model_flags.json")
     if os.path.exists(flags_json_path):
