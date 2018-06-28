@@ -312,8 +312,8 @@ def build_graph(reader,
               tf.get_default_graph().clear_collection(ref_coll)
 
                 # Connect graph flow!
-          tf.contrib.graph_editor.connect(tower_inputs[i], ref_batc)
-          tf.contrib.graph_editor.connect(tower_num_frames[i], ref_frames)
+          tf.contrib.graph_editor.swap_inputs(tower_inputs[i], ref_batc)
+          tf.contrib.graph_editor.swap_inputs(tower_num_frames[i], ref_frames)
 
 
           result = model.create_model(
