@@ -136,8 +136,8 @@ def build_graph(reader,
     model_input_raw = tf.placeholder(tf.float32, shape=(None, 300, 1152), name="xmodel_input_raw")
     labels_batch = tf.placeholder(tf.bool, shape=(None, 3862), name="xlabels_batch")
     num_frames = tf.placeholder(tf.int32, shape=(None), name="xnum_frames")
-
-  tf.summary.histogram("model_input_raw", model_input_raw)
+  if not FLAGS.build_only:
+    tf.summary.histogram("model_input_raw", model_input_raw)
 
   feature_dim = len(model_input_raw.get_shape()) - 1
 
