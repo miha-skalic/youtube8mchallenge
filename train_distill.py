@@ -301,20 +301,19 @@ def build_graph(reader,
             all_ref_variables = all_ref_variables + ref_variables
             # train_list = [tv for tv in tf.trainable_variables() if tv not in ref_variables]
 
-          ref_pred = tf.get_collection("predictions")[0]
-          ref_batc = tf.get_collection("input_batch")[0]
-          ref_frames = tf.get_collection("num_frames")[0]
+            ref_pred = tf.get_collection("predictions")[0]
+            ref_batc = tf.get_collection("input_batch")[0]
+            ref_frames = tf.get_collection("num_frames")[0]
 
-          ref_colls = ["global_step", "loss", "predictions", "input_batch_raw", "input_batch", "num_frames",
-                       "labels", "train_op", "summary_op"]
+            # Connect graph flow!
+            tf.contrib.graph_editor.swap_inputs(tower_inputs[i], ref_batc)
+            tf.contrib.graph_editor.swap_inputs(tower_num_frames[i], ref_frames)
+
+            ref_colls = ["global_step", "loss", "predictions", "input_batch_raw", "input_batch", "num_frames",
+                         "labels", "train_op", "summary_op"]
             # Clean collections from old graph
-          for ref_coll in ref_colls:
+            for ref_coll in ref_colls:
               tf.get_default_graph().clear_collection(ref_coll)
-
-                # Connect graph flow!
-          tf.contrib.graph_editor.swap_inputs(tower_inputs[i], ref_batc)
-          tf.contrib.graph_editor.swap_inputs(tower_num_frames[i], ref_frames)
-
 
           result = model.create_model(
             tower_inputs[i],
