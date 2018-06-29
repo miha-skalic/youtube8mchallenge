@@ -141,7 +141,8 @@ class YT8MFrameFeatureReader(BaseReader):
                num_classes=3862,
                feature_sizes=[1024, 128],
                feature_names=["rgb", "audio"],
-               max_frames=300):
+               max_frames=300,
+               distill=False):
     """Construct a YT8MFrameFeatureReader.
 
     Args:
@@ -159,6 +160,7 @@ class YT8MFrameFeatureReader(BaseReader):
     self.feature_sizes = feature_sizes
     self.feature_names = feature_names
     self.max_frames = max_frames
+    self.distill = distill
 
   def get_video_matrix(self,
                        features,
@@ -213,11 +215,19 @@ class YT8MFrameFeatureReader(BaseReader):
   def prepare_serialized_examples(self, serialized_example,
       max_quantized_value=2, min_quantized_value=-2):
 
+    if self.distill:
+        context_features = {"video_id": tf.FixedLenFeature(
+            [], tf.string),
+            "labels": tf.VarLenFeature(tf.int64),
+            "predictions": tf.FixedLenFeature([self.num_classes], tf.float32)}
+    else:
+        context_features = {"id": tf.FixedLenFeature(
+            [], tf.string),
+            "labels": tf.VarLenFeature(tf.int64)}
+
     contexts, features = tf.parse_single_sequence_example(
         serialized_example,
-        context_features={"id": tf.FixedLenFeature(
-            [], tf.string),
-                          "labels": tf.VarLenFeature(tf.int64)},
+        context_features=context_features,
         sequence_features={
             feature_name : tf.FixedLenSequenceFeature([], dtype=tf.string)
             for feature_name in self.feature_names
@@ -261,10 +271,15 @@ class YT8MFrameFeatureReader(BaseReader):
 
     # convert to batch format.
     # TODO: Do proper batch reads to remove the IO bottleneck.
-    batch_video_ids = tf.expand_dims(contexts["id"], 0)
+
     batch_video_matrix = tf.expand_dims(video_matrix, 0)
     batch_labels = tf.expand_dims(labels, 0)
     batch_frames = tf.expand_dims(num_frames, 0)
 
-    return batch_video_ids, batch_video_matrix, batch_labels, batch_frames
-
+    if self.distill:
+        batch_video_ids = tf.expand_dims(contexts["video_id"], 0)
+        batch_preds = tf.expand_dims(contexts["predictions"], 0)
+        return batch_video_ids, batch_video_matrix, batch_labels, batch_frames, batch_preds
+    else:
+        batch_video_ids = tf.expand_dims(contexts["id"], 0)
+        return batch_video_ids, batch_video_matrix, batch_labels, batch_frames

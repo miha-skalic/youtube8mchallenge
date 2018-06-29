@@ -16,7 +16,6 @@
 import json
 import os
 import time
-
 import eval_util
 import export_model
 import losses
@@ -112,6 +111,9 @@ if __name__ == "__main__":
   flags.DEFINE_string("ema_source", "",
                       "Pretrained model that will be used as EMA source. Must be type: "
                       "'/path/to/model/inference_model'")
+
+  flags.DEFINE_float("loss_lambda", 0.5, "Lambda factor for loss.")
+
 
   flags.DEFINE_float("ema_halflife", 3000.0, "halflife time/steps")
 
@@ -259,7 +261,7 @@ def build_graph(reader,
   tf.summary.scalar('learning_rate', learning_rate)
 
   optimizer = optimizer_class(learning_rate)
-  unused_video_id, model_input_raw, labels_batch, num_frames = (
+  unused_video_id, model_input_raw, labels_batch, num_frames, distill_predictions = (
       get_input_data_tensors(
           reader,
           train_data_pattern,
@@ -275,45 +277,18 @@ def build_graph(reader,
   tower_inputs = tf.split(model_input, num_towers)
   tower_labels = tf.split(labels_batch, num_towers)
   tower_num_frames = tf.split(num_frames, num_towers)
+  tower_refpredictions = tf.split(distill_predictions, num_towers)
   tower_gradients = []
   tower_predictions = []
   tower_label_losses = []
   tower_reg_losses = []
 
-  # Distill variables
-  all_ref_variables = []
-  ref_tower_predictions = []
   for i in range(num_towers):
     # For some reason these 'with' statements can't be combined onto the same
     # line. They have to be nested.
     with tf.device(device_string % i):
       with (tf.variable_scope(("tower"), reuse=True if i > 0 else None)):
         with (slim.arg_scope([slim.model_variable, slim.variable], device="/cpu:0" if num_gpus!=1 else "/gpu:0")):
-            ####################
-            # Distill inserted #
-            ####################
-          with (tf.variable_scope("ref_model")):
-            latest_checkpoint = "../trained_models/quants/1/inference_model"
-            meta_graph_location = latest_checkpoint + ".meta"
-            ref_saver = tf.train.import_meta_graph(meta_graph_location, clear_devices=True)
-
-            ref_variables = [i for i in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='distill_net')]
-            all_ref_variables = all_ref_variables + ref_variables
-            # train_list = [tv for tv in tf.trainable_variables() if tv not in ref_variables]
-
-            ref_pred = tf.get_collection("predictions")[0]
-            ref_batc = tf.get_collection("input_batch")[0]
-            ref_frames = tf.get_collection("num_frames")[0]
-
-            # Connect graph flow!
-            tf.contrib.graph_editor.swap_inputs(tower_inputs[i], ref_batc)
-            tf.contrib.graph_editor.swap_inputs(tower_num_frames[i], ref_frames)
-
-            ref_colls = ["global_step", "loss", "predictions", "input_batch_raw", "input_batch", "num_frames",
-                         "labels", "train_op", "summary_op"]
-            # Clean collections from old graph
-            for ref_coll in ref_colls:
-              tf.get_default_graph().clear_collection(ref_coll)
 
           result = model.create_model(
             tower_inputs[i],
@@ -326,12 +301,11 @@ def build_graph(reader,
           predictions = result["predictions"]
           tower_predictions.append(predictions)
 
-          ref_tower_predictions.append(ref_pred)
-
           if "loss" in result.keys():
             label_loss = result["loss"]
           else:
-            label_loss = label_loss_fn.calculate_loss(predictions, tower_labels[i], ref_pred)
+            label_loss = label_loss_fn.calculate_loss(predictions, tower_labels[i], tower_refpredictions[i],
+                                                      lambda_factor=FLAGS.loss_lambda)
 
           if "regularization_loss" in result.keys():
             reg_loss = result["regularization_loss"]
@@ -373,13 +347,7 @@ def build_graph(reader,
   if clip_gradient_norm > 0:
     with tf.name_scope('clip_grads'):
       merged_gradients = utils.clip_gradient_norms(merged_gradients, clip_gradient_norm)
-
-  # Filter out reference model Variables
-  clean_merged_gradients = []
-  for grad, var in merged_gradients:
-    if var not in all_ref_variables:
-      clean_merged_gradients.append((grad, var))
-  train_op = optimizer.apply_gradients(clean_merged_gradients, global_step=global_step)
+  train_op = optimizer.apply_gradients(merged_gradients, global_step=global_step)
 
   tf.add_to_collection("global_step", global_step)
   tf.add_to_collection("loss", label_loss)
@@ -390,9 +358,6 @@ def build_graph(reader,
   tf.add_to_collection("labels", tf.cast(labels_batch, tf.float32))
   tf.add_to_collection("train_op", train_op)
 
-  # Add variables from reference model
-  tf.add_to_collection("ref_variables", ref_variables)
-  tf.add_to_collection("ref_saver", ref_saver)
 
   if FLAGS.ema_source:
       # You want BN variables as well as non slim variables!
@@ -696,7 +661,7 @@ def get_reader():
 
   if FLAGS.frame_features:
     reader = readers.YT8MFrameFeatureReader(
-        feature_names=feature_names, feature_sizes=feature_sizes)
+        feature_names=feature_names, feature_sizes=feature_sizes, distill=True)
   else:
     reader = readers.YT8MAggregatedFeatureReader(
         feature_names=feature_names, feature_sizes=feature_sizes)
