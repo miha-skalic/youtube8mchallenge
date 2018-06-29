@@ -70,7 +70,6 @@ if __name__ == "__main__":
                        "Flag only applies if GPUs are installed")
   flags.DEFINE_integer("batch_size", 1024,
                        "How many examples to process per batch for training.")
-
   flags.DEFINE_float(
       "regularization_penalty", 1.0,
       "How much weight to give to the regularization loss (the label loss has "
@@ -111,9 +110,7 @@ if __name__ == "__main__":
   flags.DEFINE_string("ema_source", "",
                       "Pretrained model that will be used as EMA source. Must be type: "
                       "'/path/to/model/inference_model'")
-
   flags.DEFINE_float("loss_lambda", 0.5, "Lambda factor for loss.")
-
 
   flags.DEFINE_float("ema_halflife", 3000.0, "halflife time/steps")
 
@@ -278,6 +275,7 @@ def build_graph(reader,
   tower_labels = tf.split(labels_batch, num_towers)
   tower_num_frames = tf.split(num_frames, num_towers)
   tower_refpredictions = tf.split(distill_predictions, num_towers)
+
   tower_gradients = []
   tower_predictions = []
   tower_label_losses = []
@@ -289,7 +287,6 @@ def build_graph(reader,
     with tf.device(device_string % i):
       with (tf.variable_scope(("tower"), reuse=True if i > 0 else None)):
         with (slim.arg_scope([slim.model_variable, slim.variable], device="/cpu:0" if num_gpus!=1 else "/gpu:0")):
-
           result = model.create_model(
             tower_inputs[i],
             num_frames=tower_num_frames[i],
@@ -306,7 +303,6 @@ def build_graph(reader,
           else:
             label_loss = label_loss_fn.calculate_loss(predictions, tower_labels[i], tower_refpredictions[i],
                                                       lambda_factor=FLAGS.loss_lambda)
-
           if "regularization_loss" in result.keys():
             reg_loss = result["regularization_loss"]
           else:
@@ -357,7 +353,6 @@ def build_graph(reader,
   tf.add_to_collection("num_frames", num_frames)
   tf.add_to_collection("labels", tf.cast(labels_batch, tf.float32))
   tf.add_to_collection("train_op", train_op)
-
 
   if FLAGS.ema_source:
       # You want BN variables as well as non slim variables!
