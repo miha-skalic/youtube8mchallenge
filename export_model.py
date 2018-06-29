@@ -26,10 +26,11 @@ _TOP_PREDICTIONS_IN_OUTPUT = 20
 
 class ModelExporter(object):
 
-  def __init__(self, frame_features, model, reader):
+  def __init__(self, frame_features, model, reader, distill=False):
     self.frame_features = frame_features
     self.model = model
     self.reader = reader
+    self.distill = distill
 
     with tf.Graph().as_default() as graph:
       self.inputs, self.outputs = self.build_inputs_and_outputs()
@@ -85,8 +86,12 @@ class ModelExporter(object):
     return inputs, outputs
 
   def build_prediction_graph(self, serialized_examples):
-    video_id, model_input_raw, labels_batch, num_frames = (
-        self.reader.prepare_serialized_examples(serialized_examples))
+    if self.distill:
+        video_id, model_input_raw, labels_batch, num_frames, distill_preds = (
+          self.reader.prepare_serialized_examples(serialized_examples))
+    else:
+      video_id, model_input_raw, labels_batch, num_frames = (
+          self.reader.prepare_serialized_examples(serialized_examples))
 
     feature_dim = len(model_input_raw.get_shape()) - 1
     model_input = tf.nn.l2_normalize(model_input_raw, feature_dim)

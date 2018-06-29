@@ -751,7 +751,8 @@ def main(unused_argv):
     model_exporter = export_model.ModelExporter(
         frame_features=FLAGS.frame_features,
         model=model,
-        reader=reader)
+        reader=reader,
+        distill=True)
 
     Trainer(cluster, task, FLAGS.train_dir, model, reader, model_exporter,
             FLAGS.log_device_placement, FLAGS.max_steps,
