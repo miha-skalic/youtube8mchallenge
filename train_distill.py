@@ -550,6 +550,9 @@ class Trainer(object):
             logging.info("training step " + str(global_step_val) + " | Loss: " +
               ("%.2f" % loss_val) + " Examples/sec: " + ("%.2f" % examples_per_second))
       except tf.errors.OutOfRangeError:
+        save_name = "{0}/model.ckpt".format(self.train_dir)
+        saver.save(sess, save_name, global_step_val)
+        logging.info("Final model export.")
         logging.info("%s: Done training -- epoch limit reached.",
                      task_as_string(self.task))
 
