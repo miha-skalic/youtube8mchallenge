@@ -298,7 +298,7 @@ class YT8MFrameFeatureReader(BaseReader):
         batch_preds = tf.expand_dims(contexts["predictions"], 0)
         return batch_video_ids, batch_video_matrix, batch_labels, batch_frames, batch_preds
     elif self.prepare_distill:
-        def_video_matrix = tf.concat(feature_matrices, 1)
+        def_video_matrix = tf.concat(def_feature_matrices, 1)
         def_batch_video_matrix = tf.expand_dims(def_video_matrix, 0)
         batch_video_ids = tf.expand_dims(contexts["id"], 0)
         return batch_video_ids, batch_video_matrix, batch_labels, batch_frames, def_batch_video_matrix
