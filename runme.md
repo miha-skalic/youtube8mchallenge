@@ -154,5 +154,6 @@ python train.py \
   --num_epochs=7 \
   --num_gpu 2 \
   --num_readers 12 \
+  --frame_shuffle
   --start_new_model
 ```
