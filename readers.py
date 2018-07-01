@@ -195,7 +195,7 @@ class YT8MFrameFeatureReader(BaseReader):
     if self.prepare_distill:
         def_feature_matrix = tf.reshape(tf.decode_raw(features, tf.uint8), [-1, feature_size])
         def_feature_matrix = resize_axis(def_feature_matrix, 0, max_frames)
-        return feature_matrix, num_frames, def_feature_matrix, def_feature_matrix
+        return feature_matrix, num_frames, def_feature_matrix
     return feature_matrix, num_frames
 
   def prepare_reader(self,
