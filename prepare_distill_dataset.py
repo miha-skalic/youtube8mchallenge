@@ -96,11 +96,11 @@ def fetc_inputs(reader,
                 batch_size=1024,
                 num_readers=1):
 
-    video_id_batch, model_input_raw, labels_batch, num_frames = get_input_evaluation_tensors(reader,
-                                                                                         eval_data_pattern,
-                                                                                         batch_size=batch_size,
-                                                                                         num_readers=num_readers)
-    return video_id_batch, model_input_raw, labels_batch, num_frames
+    video_id_batch, model_input_raw, labels_batch, num_frames, quant_feats = get_input_evaluation_tensors(reader,
+                                                                                             eval_data_pattern,
+                                                                                             batch_size=batch_size,
+                                                                                             num_readers=num_readers)
+    return video_id_batch, model_input_raw, labels_batch, num_frames, quant_feats
 
 
 # Builds the record strucutre
@@ -157,11 +157,12 @@ def inference_loop():
                                                                        flags_dict["feature_sizes"])
     if flags_dict["frame_features"]:
         reader = readers.YT8MFrameFeatureReader(feature_names=feature_names,
-                                                feature_sizes=feature_sizes)
+                                                feature_sizes=feature_sizes,
+                                                prepare_distill=True)
 
     else:
         raise NotImplementedError
-    video_ids_batch, inputs_batch, labels_batch, num_frames = fetc_inputs(reader,
+    video_ids_batch, inputs_batch, labels_batch, num_frames, quant_inpt = fetc_inputs(reader,
                                                                             FLAGS.input_data_pattern,
                                                                             FLAGS.batch_size,
                                                                             FLAGS.num_readers)
@@ -190,7 +191,7 @@ def inference_loop():
         sess.run(set_up_init_ops(tf.get_collection_ref(tf.GraphKeys.LOCAL_VARIABLES)))
 
         # Start the queue runners.
-        fetches1 = [video_ids_batch, labels_batch, inputs_batch, num_frames]
+        fetches1 = [video_ids_batch, labels_batch, inputs_batch, num_frames, quant_inpt]
         fetches2 = [predictions_batch]
         coord = tf.train.Coordinator()
         start_time = time.time()
@@ -215,8 +216,8 @@ def inference_loop():
 
             while not coord.should_stop():
                 ids_val = None
-                ids_val, labels_val, inputs_val, num_frames_val  = sess.run(fetches1)
-                rgbs_val, audios_val = inputs_val[:, :, :1024].copy(), inputs_val[:, :, 1024:].copy()
+                ids_val, labels_val, inputs_val, num_frames_val, quant_inpt_val  = sess.run(fetches1)
+                rgbs_val, audios_val = quant_inpt_val[:, :, :1024].copy(), quant_inpt_val[:, :, 1024:].copy()
 
                 predictions_val = sess.run(fetches2, feed_dict={input_tensor: inputs_val,
                                                                 num_frames_tensor: num_frames_val})[0]

@@ -142,7 +142,8 @@ class YT8MFrameFeatureReader(BaseReader):
                feature_sizes=[1024, 128],
                feature_names=["rgb", "audio"],
                max_frames=300,
-               distill=False):
+               distill=False,
+               prepare_distill=False):
     """Construct a YT8MFrameFeatureReader.
 
     Args:
@@ -161,6 +162,7 @@ class YT8MFrameFeatureReader(BaseReader):
     self.feature_names = feature_names
     self.max_frames = max_frames
     self.distill = distill
+    self.prepare_distill = prepare_distill
 
   def get_video_matrix(self,
                        features,
@@ -190,6 +192,10 @@ class YT8MFrameFeatureReader(BaseReader):
                                       max_quantized_value,
                                       min_quantized_value)
     feature_matrix = resize_axis(feature_matrix, 0, max_frames)
+    if self.prepare_distill:
+        def_feature_matrix = tf.reshape(tf.decode_raw(features, tf.uint8), [-1, feature_size])
+        def_feature_matrix = resize_axis(def_feature_matrix, 0, max_frames)
+        return feature_matrix, num_frames, def_feature_matrix, def_feature_matrix
     return feature_matrix, num_frames
 
   def prepare_reader(self,
@@ -249,19 +255,30 @@ class YT8MFrameFeatureReader(BaseReader):
 
     num_frames = -1  # the number of frames in the video
     feature_matrices = [None] * num_features  # an array of different features
+    def_feature_matrices = [None] * num_features  # an array of different features
     for feature_index in range(num_features):
-      feature_matrix, num_frames_in_this_feature = self.get_video_matrix(
-          features[self.feature_names[feature_index]],
-          self.feature_sizes[feature_index],
-          self.max_frames,
-          max_quantized_value,
-          min_quantized_value)
+      if self.prepare_distill:
+        feature_matrix, num_frames_in_this_feature, def_fm = self.get_video_matrix(
+            features[self.feature_names[feature_index]],
+            self.feature_sizes[feature_index],
+            self.max_frames,
+            max_quantized_value,
+            min_quantized_value)
+      else:
+          feature_matrix, num_frames_in_this_feature = self.get_video_matrix(
+            features[self.feature_names[feature_index]],
+            self.feature_sizes[feature_index],
+            self.max_frames,
+            max_quantized_value,
+            min_quantized_value)
       if num_frames == -1:
         num_frames = num_frames_in_this_feature
       else:
         tf.assert_equal(num_frames, num_frames_in_this_feature)
 
       feature_matrices[feature_index] = feature_matrix
+      if self.prepare_distill:
+        def_feature_matrices[feature_index] = def_fm
 
     # cap the number of frames at self.max_frames
     num_frames = tf.minimum(num_frames, self.max_frames)
@@ -280,6 +297,11 @@ class YT8MFrameFeatureReader(BaseReader):
         batch_video_ids = tf.expand_dims(contexts["video_id"], 0)
         batch_preds = tf.expand_dims(contexts["predictions"], 0)
         return batch_video_ids, batch_video_matrix, batch_labels, batch_frames, batch_preds
+    elif self.prepare_distill:
+        def_video_matrix = tf.concat(feature_matrices, 1)
+        def_batch_video_matrix = tf.expand_dims(def_video_matrix, 0)
+        batch_video_ids = tf.expand_dims(contexts["id"], 0)
+        return batch_video_ids, batch_video_matrix, batch_labels, batch_frames, def_batch_video_matrix
     else:
         batch_video_ids = tf.expand_dims(contexts["id"], 0)
         return batch_video_ids, batch_video_matrix, batch_labels, batch_frames
