@@ -93,3 +93,27 @@ def FramePooling(frames, method, **unused_params):
     return tf.reshape(frames, [-1, feature_size])
   else:
     raise ValueError("Unrecognized pooling method: %s" % method)
+
+
+def shuffle_frames(inpt, n_frames):
+    """
+    Randomly permutes order of frames, taking into account length of the frames
+    inpt: Tensor of frames
+    n_frames : tensor of shape batch_size : number of frames for each sample
+    """
+    print("### FRAME SHUFFLING ENABLED ###")
+    max_frames = 300  # maximum number of frames
+
+    order_asign = tf.random_uniform(tf.shape(inpt)[:-1])  # batch x frames, to determine order
+    mask_set = tf.tile(tf.expand_dims(tf.range(1, max_frames + 1), axis=1), [1, tf.shape(inpt)[0]])
+    mask = tf.transpose(tf.logical_not(tf.greater(mask_set, n_frames)))
+
+    svalues = tf.cast(mask, tf.float32) * order_asign  # sort by these values
+    sort_order = tf.contrib.framework.argsort(svalues, direction="DESCENDING")
+
+    inpt_flat = tf.reshape(inpt, (-1, tf.shape(inpt)[-1]))
+    flat_loc = tf.tile(tf.expand_dims(tf.range(tf.shape(inpt)[0]), 1),
+                       [1, max_frames])  # .eval({inpt: x, n_frames: x_nf})
+    flat_loc = tf.reshape(flat_loc * tf.shape(inpt)[1] + sort_order, [-1])
+    output = tf.reshape(tf.gather(inpt_flat, flat_loc), tf.shape(inpt))
+    return output

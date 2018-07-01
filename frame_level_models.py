@@ -47,6 +47,9 @@ flags.DEFINE_string("video_level_classifier_model", "MoeModel",
 flags.DEFINE_integer("lstm_cells", 1024, "Number of LSTM cells.")
 flags.DEFINE_integer("lstm_layers", 2, "Number of LSTM layers.")
 
+flags.DEFINE_bool("frame_shuffle", False,
+                  "Set to true if you want to shuffle frames.")
+
 from devel_models import *
 
 class FrameLevelLogisticModel(models.BaseModel):
@@ -380,6 +383,9 @@ class Lstmbidirect(models.BaseModel):
       model in the 'predictions' key. The dimensions of the tensor are
       'batch_size' x 'num_classes'.
     """
+
+    if FLAGS.frame_shuffle:
+        model_input = utils.shuffle_frames(model_input, num_frames)
     lstm_size = FLAGS.lstm_cells
 
     lstm_fw = tf.contrib.rnn.BasicLSTMCell(lstm_size/2, forget_bias=1.0)
