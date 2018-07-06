@@ -131,9 +131,9 @@ def evaluate():
     with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
         meta_graph_location = model_path + ".meta"
         logging.info("loading meta-graph: " + meta_graph_location)
-
-        saver = tf.train.import_meta_graph(meta_graph_location, clear_devices=True)
-        saver.restore(sess, model_path)
+        with tf.device("/gpu:0"):
+            saver = tf.train.import_meta_graph(meta_graph_location, clear_devices=True)
+            saver.restore(sess, model_path)
 
         input_tensor = tf.get_collection("input_batch_raw")[0]
         num_frames_tensor = tf.get_collection("num_frames")[0]
