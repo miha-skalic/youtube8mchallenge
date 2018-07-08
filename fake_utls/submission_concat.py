@@ -1,4 +1,4 @@
-#usage: python submission_concat.py --good_file ./netvald.csv --fake_file ./badreplace.csv --submit_file ./submission.csv
+#usage: python submission_concat.py --good_file ./netvald.csv --fake_file ./badreplace.csv --submit_file ./submission.csv.gz
 import pandas as pd
 import argparse
 import os
@@ -16,6 +16,6 @@ df_fake = pd.read_csv(args["fake_file"])
 frames = [df_orig, df_fake]
 
 df_submit = pd.concat(frames)
-df_submit.to_csv(args["submit_file"], index=False)
+df_submit.to_csv(args["submit_file"], compression='gzip', index=False)
 
 
