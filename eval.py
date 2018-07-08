@@ -301,6 +301,7 @@ def evaluation_loop(video_id_batch, prediction_batch, label_batch, loss,
           epoch_info_dict,
           summary_scope="Eval")
       logging.info(epochinfo)
+      with open ('evallog.txt', 'a') as f: f.write(epochinfo + '\n')
       evl_metrics.clear()
     except Exception as e:  # pylint: disable=broad-except
       logging.info("Unexpected exception: " + str(e))
