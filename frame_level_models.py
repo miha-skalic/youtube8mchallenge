@@ -50,6 +50,17 @@ flags.DEFINE_integer("lstm_layers", 2, "Number of LSTM layers.")
 flags.DEFINE_bool("frame_shuffle", False,
                   "Set to true if you want to shuffle frames.")
 
+
+flags.DEFINE_bool("dbof_relu", True, 'add ReLU to hidden layer')
+flags.DEFINE_integer("dbof_var_features", 0,
+                     "Variance features on top of Dbof cluster layer.")
+
+flags.DEFINE_string("dbof_activation", "relu", 'dbof activation')
+
+flags.DEFINE_bool("softdbof_maxpool", False, 'add max pool to soft dbof')
+
+flags.DEFINE_bool("fc_dimred", True, "Adding FC dimred after pooling")
+
 from devel_models import *
 
 class FrameLevelLogisticModel(models.BaseModel):
