@@ -309,7 +309,7 @@ class GRUbidirect(models.BaseModel):
 
         gating_biases = tf.get_variable("gating_biases",
                                         [mat_size],
-                                        initializer=tf.random_normal(stddev=1 / math.sqrt(mat_size)))
+                                        initializer=tf.random_normal_initializer(stddev=1. / math.sqrt(mat_size)))
         gates += gating_biases
 
         gates = tf.sigmoid(gates)
