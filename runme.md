@@ -199,7 +199,7 @@ python train.py \
 Gated GRU model:
 ```
 python train.py \
-  --train_data_pattern="$RECORDPAT//*.tfrecord" \
+  --train_data_pattern="$RECORDPAT/*.tfrecord" \
   --model=GRUbidirect \
   --frame_features \
   --feature_names="rgb, audio" \

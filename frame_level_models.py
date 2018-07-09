@@ -372,11 +372,34 @@ class GRUbidirect_branchedBN(models.BaseModel):
 
         state = tf.concat([state_video[-1], state_audio[-1]], axis=1)
 
+        gating = FLAGS.gating
+        if gating:
+            print("### GATING NETOWKR ###")
+
+            activation = state
+            mat_size = tf.shape(activation[1])
+
+            gating_weights = tf.get_variable("gating_weights_2",
+                                             [mat_size, mat_size],
+                                             initializer=tf.random_normal_initializer(
+                                                 stddev=1 / math.sqrt(mat_size)))
+
+            gates = tf.matmul(activation, gating_weights)
+
+            gating_biases = tf.get_variable("gating_biases",
+                                            [mat_size],
+                                            initializer=tf.random_normal(stddev=1 / math.sqrt(mat_size)))
+            gates += gating_biases
+
+            gates = tf.sigmoid(gates)
+
+            activation = tf.multiply(activation, gates)
+
         aggregated_model = getattr(video_level_models,
                                    FLAGS.video_level_classifier_model)
 
         return aggregated_model().create_model(
-            model_input=state,
+            model_input=activation,
             vocab_size=vocab_size,
             **unused_params)
 
