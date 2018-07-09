@@ -194,3 +194,22 @@ python train.py \
   --num_gpu 2 \
   --num_epochs=7
 ```
+
+Gated GRU model:
+```
+python train.py \
+  --train_data_pattern="../data/frame/train/*.tfrecord" \
+  --model=GRUbidirect \
+  --frame_features \
+  --feature_names="rgb, audio" \
+  --feature_sizes="1024, 128" \
+  --batch_size=256 \
+  --train_dir="../trained_models/GRUv0_GATED" \
+  --base_learning_rate=0.0002 \
+  --lstm_cells=1024 \
+  --num_epochs=7 \
+  --num_gpu 2 \
+  --num_readers 12 \
+  --gating=True \
+  --moe_prob_gating=True \
+```

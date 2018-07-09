@@ -259,6 +259,7 @@ class GRUbidirect(models.BaseModel):
                    num_frames,
                    video_level_classifier_model=None,
                    lstm_size=None,
+                   is_training=True,
                    **unused_params):
     """Creates a model which uses 2 layer of GRUs to represent the video.
     Args:
@@ -300,6 +301,7 @@ class GRUbidirect(models.BaseModel):
     return aggregated_model().create_model(
         model_input=state[-1],
         vocab_size=vocab_size,
+        is_training=is_training,
         **unused_params)
 
 
