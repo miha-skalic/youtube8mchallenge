@@ -298,7 +298,7 @@ class GRUbidirect(models.BaseModel):
         print("### GATING NETOWOKR ###")
 
         activation = state[-1]
-        mat_size = tf.shape(activation)[1]
+        mat_size = activation.shape[1].value
 
         gating_weights = tf.get_variable("gating_weights_2",
                                          [mat_size, mat_size],
@@ -400,7 +400,7 @@ class GRUbidirect_branchedBN(models.BaseModel):
             print("### GATING NETOWOKR ###")
 
             activation = state
-            mat_size = tf.shape(activation)[1]
+            mat_size = activation.shape[1].value
 
             gating_weights = tf.get_variable("gating_weights_2",
                                              [mat_size, mat_size],
