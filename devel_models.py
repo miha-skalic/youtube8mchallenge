@@ -678,6 +678,7 @@ class GatedDBoF():
 
         return activation
 
+
 class SoftDBoF():
     def __init__(self, feature_size, max_frames, cluster_size, max_pool, add_batch_norm, is_training):
         self.feature_size = feature_size

@@ -182,6 +182,7 @@ python train.py \
   --train_data_pattern="$RECORDPAT/*.tfrecord" \
   --model=SoftDbofModelLF \
   --train_dir="$SAVEPATH/softdboflf8000" \
+  --train_dir=softdboflf8000 \
   --frame_features=True \
   --feature_names="rgb,audio" \
   --feature_sizes="1024,128" \
