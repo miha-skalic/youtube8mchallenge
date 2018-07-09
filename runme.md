@@ -205,7 +205,7 @@ python train.py \
   --feature_names="rgb, audio" \
   --feature_sizes="1024, 128" \
   --batch_size=256 \
-  --train_dir="$AVEPATH/GRUv0_GATED" \
+  --train_dir="$SAVEPATH/GRUv0_GATED" \
   --base_learning_rate=0.0002 \
   --lstm_cells=1024 \
   --num_epochs=7 \

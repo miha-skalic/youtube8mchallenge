@@ -293,13 +293,36 @@ class GRUbidirect(models.BaseModel):
                                        sequence_length=num_frames,
                                        dtype=tf.float32)
 
+    gating = FLAGS.gating
+    if gating:
+        print("### GATING NETOWOKR ###")
+
+        activation = state[-1]
+        mat_size = tf.shape(activation)[1]
+
+        gating_weights = tf.get_variable("gating_weights_2",
+                                         [mat_size, mat_size],
+                                         initializer=tf.random_normal_initializer(
+                                             stddev=1 / math.sqrt(mat_size)))
+
+        gates = tf.matmul(activation, gating_weights)
+
+        gating_biases = tf.get_variable("gating_biases",
+                                        [mat_size],
+                                        initializer=tf.random_normal(stddev=1 / math.sqrt(mat_size)))
+        gates += gating_biases
+
+        gates = tf.sigmoid(gates)
+
+        activation = tf.multiply(activation, gates)
+
     if not video_level_classifier_model:
         video_level_classifier_model = FLAGS.video_level_classifier_model
     aggregated_model = getattr(video_level_models,
                                video_level_classifier_model)
 
     return aggregated_model().create_model(
-        model_input=state[-1],
+        model_input=activation,
         vocab_size=vocab_size,
         is_training=is_training,
         **unused_params)
@@ -374,10 +397,10 @@ class GRUbidirect_branchedBN(models.BaseModel):
 
         gating = FLAGS.gating
         if gating:
-            print("### GATING NETOWKR ###")
+            print("### GATING NETOWOKR ###")
 
             activation = state
-            mat_size = tf.shape(activation[1])
+            mat_size = tf.shape(activation)[1]
 
             gating_weights = tf.get_variable("gating_weights_2",
                                              [mat_size, mat_size],
