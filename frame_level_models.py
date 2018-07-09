@@ -294,6 +294,7 @@ class GRUbidirect(models.BaseModel):
                                        dtype=tf.float32)
 
     gating = FLAGS.gating
+    activation = state[-1]
     if gating:
         print("### GATING NETOWOKR ###")
 
@@ -309,7 +310,7 @@ class GRUbidirect(models.BaseModel):
 
         gating_biases = tf.get_variable("gating_biases",
                                         [mat_size],
-                                        initializer=tf.random_normal(stddev=1 / math.sqrt(mat_size)))
+                                        initializer=tf.random_normal_initializer(stddev=1. / math.sqrt(mat_size)))
         gates += gating_biases
 
         gates = tf.sigmoid(gates)
@@ -396,10 +397,11 @@ class GRUbidirect_branchedBN(models.BaseModel):
         state = tf.concat([state_video[-1], state_audio[-1]], axis=1)
 
         gating = FLAGS.gating
+        activation = state
         if gating:
             print("### GATING NETOWOKR ###")
 
-            activation = state
+            
             mat_size = activation.shape[1].value
 
             gating_weights = tf.get_variable("gating_weights_2",
