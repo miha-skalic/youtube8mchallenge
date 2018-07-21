@@ -20,6 +20,11 @@ from tensorflow import logging
 from tensorflow import flags
 import tensorflow.contrib.slim as slim
 
+from tensorflow import flags
+FLAGS = flags.FLAGS
+flags.DEFINE_bool("sample_all", False,
+                  "Ensure that all frames are sampled.")
+
 def SampleRandomSequence(model_input, num_frames, num_samples):
   """Samples a random sequence of frames of size num_samples.
 
@@ -48,6 +53,22 @@ def SampleRandomSequence(model_input, num_frames, num_samples):
   return tf.gather_nd(model_input, index)
 
 
+def represent_all(model_input, sampled_frames, num_frames, max_frames=300):
+    """
+    Ensure that each frame is present at least once.
+    """
+    frame_lens = tf.reshape(num_frames, (-1,))
+
+    mask_set = tf.tile(tf.expand_dims(tf.range(1, max_frames + 1), axis=1), [1, tf.shape(sampled_frames)[0]])
+    mask = tf.transpose(tf.logical_not(tf.greater(mask_set, tf.cast(frame_lens, tf.int32))))
+
+    conter_mask = tf.logical_not(mask)
+
+    original = (tf.cast(mask, tf.float32) * tf.transpose(model_input, (2, 0, 1)))
+    sampled = (tf.cast(conter_mask, tf.float32) * tf.transpose(sampled_frames, (2, 0, 1)))
+    consensus = tf.transpose(original + sampled, (1, 2, 0))
+    return consensus
+
 def SampleRandomFrames(model_input, num_frames, num_samples):
   """Samples a random set of frames of size num_samples.
 
@@ -67,7 +88,12 @@ def SampleRandomFrames(model_input, num_frames, num_samples):
   batch_index = tf.tile(
       tf.expand_dims(tf.range(batch_size), 1), [1, num_samples])
   index = tf.stack([batch_index, frame_index], 2)
-  return tf.gather_nd(model_input, index)
+  if FLAGS.sample_all:
+    sampled_frames = tf.gather_nd(model_input, index)
+    return represent_all(model_input, sampled_frames, num_frames)
+  else:
+    return tf.gather_nd(model_input, index)
+
 
 def FramePooling(frames, method, **unused_params):
   """Pools over the frames of a video.
