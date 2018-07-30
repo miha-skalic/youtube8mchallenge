@@ -53,6 +53,8 @@ if __name__ == "__main__":
   flags.DEFINE_boolean("run_once", False, "Whether to run eval only once.")
   flags.DEFINE_integer("top_k", 20, "How many predictions to output per video.")
 
+  flags.DEFINE_integer("n_rounds", 1, "How many rounds of eval to run.")
+
   flags.DEFINE_boolean("use_EMA", False, "Whether to use EMA shadow variables.")
   flags.DEFINE_boolean("build_only", False, "Whether to build graph, but not evaluate. "
                        "This will build graph without the coordinators.")
@@ -151,10 +153,24 @@ def build_graph(reader,
                                 labels=labels_batch,
                                 is_training=False)
     predictions = result["predictions"]
-    tf.summary.histogram("model_activations", predictions)
-    if "loss" in result.keys():
+
+
+  if FLAGS.n_rounds > 1:
+      print("### Using multiple Rouds! ###")
+      for i in range(FLAGS.n_rounds - 1):
+          with tf.variable_scope("tower", reuse=True):
+              result = model.create_model(model_input,
+                                          num_frames=num_frames,
+                                          vocab_size=reader.num_classes,
+                                          labels=labels_batch,
+                                          is_training=False)
+              predictions += result["predictions"]
+  predictions = predictions / FLAGS.n_rounds
+
+  tf.summary.histogram("model_activations", predictions)
+  if "loss" in result.keys():
       label_loss = result["loss"]
-    else:
+  else:
       label_loss = label_loss_fn.calculate_loss(predictions, labels_batch)
 
   tf.add_to_collection("global_step", global_step)
