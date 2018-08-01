@@ -23,6 +23,7 @@ for in_model in in_models:
     assert os.path.isfile(in_model + ".meta")
 
 in_model = in_models[0]
+n_models = len(in_models)
 
 with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
     readers = [pywrap_tensorflow.NewCheckpointReader(xmodel) for xmodel in in_models]
@@ -30,7 +31,11 @@ with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
     global_vars = tf.global_variables()
 
     for xtensor in global_vars:
-        final_t = np.mean([xreader.get_tensor(xtensor.name.split(":")[0]) for xreader in readers], axis=0)
+        # final_t = np.mean([xreader.get_tensor(xtensor.name.split(":")[0]) for xreader in readers], axis=0)
+        final_t = readers[0].get_tensor(xtensor.name.split(":")[0]
+        for xreader in readers[1:]:
+            final_t += xreader.get_tensor(xtensor.name.split(":")[0]
+        final_t /= n_models
         xtensor.load(final_t, session=sess)
 
     saver = tf.train.Saver(global_vars)
