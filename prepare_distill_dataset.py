@@ -41,7 +41,6 @@ if __name__ == '__main__':
     flags.DEFINE_string("input_feature_sizes", "1024,128", "Length of the feature vectors.")
     flags.DEFINE_string("prediction_feature_names", "predictions", "Name of the feature "
                                                                    "to use for training.")
-    flags.DEFINE_string("prediction_feature_sizes", "3862", "Length of the feature vectors.")
     flags.DEFINE_integer("batch_size", 256,
                          "How many examples to process per batch.")
     flags.DEFINE_integer("file_size", 512,
