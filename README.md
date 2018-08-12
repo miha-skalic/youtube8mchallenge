@@ -2,6 +2,8 @@
 
 This repository contains all code used by first placed team "Next top GB model" ([David](https://www.kaggle.com/tivfrvqhs5) and [Miha skalic](https://www.kaggle.com/mihaskalic)) in the Kaggle's competition [The 2nd YouTube-8M Video Understanding Challenge](https://www.kaggle.com/c/youtube8m-2018/).
  
+Code was written for `python==2.7` and `tensorflow_gpu=1.8.0`.
+ 
 Code is released under Apache License Version 2.0.
 
 
@@ -69,5 +71,5 @@ python eval_custom.py \
 ### 6. Model Distillation
 
 `prepare_distill_dataset.py` and `train_distill.py` are scripts used in distillation training. Former is used to generated distilled dataset, 
-while the later one used is used to train new models on that dataset. Flags are documented within the scripts. 
+while the later one is used to train new models on that dataset. Flags are documented within the scripts. 
  
