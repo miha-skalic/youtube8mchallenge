@@ -6,70 +6,182 @@ Code was written for `python==2.7` and `tensorflow_gpu=1.8.0`.
  
 Code is released under Apache License Version 2.0.
 
+This readme walks through a specific example to reproduce training, eval, distillation, quantization, graph combination for a single model type.
 
-## Major Changes
 
-### 1. EMA variables
+## Background
 
-This modification given a trained model continues to train a model while keeping shadow variables of weights. To train with EMA add these flags:
-`--ema_source "path_to/source_model/inference_model"` and `--ema_halflife 2000`. Adjusting the flag parameters accordingly.
+All models herein were trained in single GPU mode and the instructions that follow will reproduce this step. The
+overall flow for training each model is as follows:
+1. Train model
+2. Evaluate model
+3. (Optional) Perform EMA- Exponentially weighted Moving Average of weights
+4. Quantize model
+5. Perform inference on quantized model
+6. (Optional) If running distillation, create distillation dataset, then repeat from step 1.
+7. Combine multiple graphs into single graph
 
-`ema_halflife` parameter has to be optimized. For starters I would recommend using vaue of `1500 X NGPUs X BathcSize / 512`
- and train it for 2 epochs at reduced (1/5) Learning Rate. 
 
-To activate the shadow variables for evaluation use flag `--use_EMA` with script `eval.py`.
+This readme will walk through all commands to train both stand-alone and a distillation model.  For model details for other models
+see all_models.txt.
 
- 
-### 2. Graph ensemble script 
+## Requirements
 
-`graph_ensemble.py` takes in 2 or more trained models and combines them into a single graph. Sample usage:
+All code was run using Python 2.7 and Tensorflow 1.8.0.  All models were trained on GPU's.  The requirements.txt file
+contains a list of all libraries installed in the environment used for training and testing.  While all libraries are not
+required, the having the full list should ensure complete compatibility with all code.
+
+
+
+## Training Models
+
+Make sure to set your local paths correctly for the train and save paths:
+
 ```
-python graph_ensemble.py
-  --models "/path/to/model1/inference_model" "/path/to/model2/inference_model\"
-  --save_folder "/path/to/joined_model"
-  --weights 0.7 0.3
+export CUDA_VISIBLE_DEVICES=0
+SAVEPATH="../trained_models"
+RECORDPAT="../data/frame/train"
+
+
+python train.py \
+  --train_data_pattern="$RECORDPAT/*.tfrecord" \
+  --model=NetVLADModelLF \
+  --train_dir="$SAVEPATH//NetVLAD" \
+  --frame_features=True --feature_names="rgb,audio" \
+  --feature_sizes="1024,128" \
+  --batch_size=160 --base_learning_rate=0.0002 \
+  --netvlad_cluster_size=256 \
+  --netvlad_hidden_size=1024 \
+  --moe_l2=1e-6 --iterations=300 \
+  --learning_rate_decay=0.8 \
+  --netvlad_relu=False \
+  --gating=True \
+  --moe_prob_gating=True \
+  --lightvlad=False \
+  --num_gpu 1 \
+  --num_epochs=10 \
 ```
 
-### 3. Quantization 
+# Eval model
 
-there are the 3 ways to reduce model size:
-1. converting variables to float16 (approx. 1/2 the size)
-2. 8bit uniform min-max quantization (approx. 1/4 the size)
-3. 8bit quantization with where quants are determined by k-means clustering (approx. 1/4 the size)
+Once training is complete, eval is performed as follows:
 
-Sample usage
 ```
+RECORDPATVAL="../data/frame/train"
+
+python eval.py \
+  --eval_data_pattern="$RECORDPATVAL/*.tfrecord" \
+  --model=NetVLADModelLF \
+  --train_dir="$SAVEPATH//NetVLAD" \
+  --frame_features=True --feature_names="rgb,audio" \
+  --feature_sizes="1024,128" \
+  --batch_size=160 --base_learning_rate=0.0002 \
+  --netvlad_cluster_size=256 \
+  --netvlad_hidden_size=1024 \
+  --moe_l2=1e-6 --iterations=300 \
+  --learning_rate_decay=0.8 \
+  --netvlad_relu=False \
+  --gating=True \
+  --moe_prob_gating=True \
+  --lightvlad=False \
+  --num_gpu 1 \
+  --num_epochs=10 \
+  --run_once \
+  --build_only \
+  --sample_all
+```
+
+# Perform EMA
+
+```
+python train.py \
+  --train_data_pattern="$RECORDPAT/*.tfrecord" \
+  --model=NetVLADModelLF \
+  --train_dir="$SAVEPATH//NetVLAD_ema" \
+  --video_level_classifier_model="LogisticModel" \
+  --frame_features \
+  --feature_names="rgb, audio" \
+  --feature_sizes="1024, 128" \
+  --batch_size=160 \
+  --base_learning_rate=0.00008 \
+  --lstm_cells=1024 \
+  --num_epochs=2 \
+  --num_gpu 1 \
+  --num_readers 8 \
+  --loss_lambda 0.5 \
+  --ema_halflife 2000 \
+  --ema_source "$SAVEPATH//NetVLAD/inference_model"
+
+python eval.py \
+  --eval_data_pattern="$RECORDPATVAL/*.tfrecord" \
+  --model=NetVLADModelLF \
+  --train_dir="$SAVEPATH//NetVLAD_ema" \
+  --video_level_classifier_model="LogisticModel" \
+  --frame_features \
+  --feature_names="rgb, audio" \
+  --feature_sizes="1024, 128" \
+  --batch_size=160 \
+  --base_learning_rate=0.00008 \
+  --lstm_cells=1024 \
+  --num_epochs=2 \
+  --num_gpu 1 \
+  --num_readers 8 \
+  --build_only \
+  --run_once \
+  --sample_all
+
+```
+
+# Quantize Model and copy model_flags.json
+
+Change savefile to specific save path
+
+```
+
 python quantize.py \
   --transform_type quant_uniform \
-  --model ../path/to/modelX/inference_model \
-  --min_elements 17000 \
-  --savefile ../path/to/modelX/inference_model_uniformquant
-```
-by default only vaiables with more than 17000 parameters will be quantized. Use parameter `--min_elements` to adjust 
-the threshold. 
+  --model "$SAVEPATH//NetVLAD_ema/inference_model" \
+  --savefile ../trained_models/quants/your_model/inference_model
 
-
-### 4. fake_utls
-In this subfolder you will find commands to clear redundant test samples. Follow the readme in the folder.
-
-
-### 5. Changes to eval.py
-
-If `build_only` flag is set the script will compile the model (you still have to provide the parameters) without the data providers. 
-This is useful if you want to run models on other machines. In this case evaluation loop will not run. 
-
-
-The default eval.py will not work on custom quantized and or ensembled graphs. For this use `eval_custom.py`:
+cp $SAVEPATH//NetVLAD_ema/model_flags.json ../trained_models/quants/your_model
 
 ```
-python eval_custom.py \
-  --model_file="../trained_models/xxx/inference_model"  \
-  --batch_size 150 \
-  --eval_data_pattern="../data/frame/validate/*A.tfrecord"
+# Combine multiple graphs into single graph
+
+graph_ensemble.py takes in 2 or more trained models and combines them into a single graph. Sample usage:
+
+
+```
+python graph_ensemble.py \
+--models ../trained_models/quants/74/inference_model \
+        ../trained_models/model_1/inference_model \
+        ../trained_models/model_2/inference_model \
+        ../trained_models/model_3/inference_model \
+--weights 0.3333 0.3333 0.3334  \
+--save_folder ../train_models/your_combined_output_graph
 ```
 
-### 6. Model Distillation
 
-`prepare_distill_dataset.py` and `train_distill.py` are scripts used in distillation training. Former is used to generated distilled dataset, 
-while the later one is used to train new models on that dataset. Flags are documented within the scripts. 
- 
+# Perform Inference
+
+```
+
+RECORDPATTEST="../data/frame/test"
+
+python inference_gpu.py \
+  --train_dir "../trained_models/quants/your_model"  \
+  --output_file="./output.csv" \
+  --input_data_pattern="$RECORDPATtest/*.tfrecord" \
+  --batch_size 200 \
+  --sample_all
+```
+
+# Create Distillation Set
+
+WARNING: Large dataset creation!  Creating a new Distillation set will consume ~1.4TB of data so you'll need
+to have the storage space available.
+
+```
+python prepare_distill_dataset.py   --batch_size 128   --file_size 512   --input_data_pattern "$RECORDPATVAL/*.tfrecord"   --output_dir "output_folder/train_distill/"   --model_file "../train_models/your_ensemble_model/inference_model"
+
+```
