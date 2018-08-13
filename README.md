@@ -2,7 +2,7 @@
 
 This repository contains all code used by first placed team "Next top GB model" ([David](https://www.kaggle.com/tivfrvqhs5) and [Miha skalic](https://www.kaggle.com/mihaskalic)) in the Kaggle's competition [The 2nd YouTube-8M Video Understanding Challenge](https://www.kaggle.com/c/youtube8m-2018/).
  
-Code is released under Apache License Version 2.0.
+The repository is a fork of [google's repository](https://github.com/google/youtube-8m) and borrows from [Wang et al](https://github.com/wangheda/youtube-8m), [Miech et al](https://github.com/antoine77340/Youtube-8M-WILLOW) and [Skalic et al](https://github.com/mpekalski/Y8M). Code is released under Apache License Version 2.0.
 
 This readme walks through a specific example to reproduce training, eval, distillation, quantization, graph combination for a single model type.
 
