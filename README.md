@@ -2,8 +2,6 @@
 
 This repository contains all code used by first placed team "Next top GB model" ([David](https://www.kaggle.com/tivfrvqhs5) and [Miha skalic](https://www.kaggle.com/mihaskalic)) in the Kaggle's competition [The 2nd YouTube-8M Video Understanding Challenge](https://www.kaggle.com/c/youtube8m-2018/).
  
-Code was written for `python==2.7` and `tensorflow_gpu=1.8.0`.
- 
 Code is released under Apache License Version 2.0.
 
 This readme walks through a specific example to reproduce training, eval, distillation, quantization, graph combination for a single model type.
@@ -176,7 +174,7 @@ python inference_gpu.py \
   --sample_all
 ```
 
-# Create Distillation Set
+# Create Distillation Set and Train on it.
 
 WARNING: Large dataset creation!  Creating a new Distillation set will consume ~1.4TB of data so you'll need
 to have the storage space available.
@@ -185,3 +183,9 @@ to have the storage space available.
 python prepare_distill_dataset.py   --batch_size 128   --file_size 512   --input_data_pattern "$RECORDPATVAL/*.tfrecord"   --output_dir "output_folder/train_distill/"   --model_file "../train_models/your_ensemble_model/inference_model"
 
 ```
+
+Training on a distillation dataset can be done using `train_distill.py` script. Use same flags as in `train.py`.
+
+# Model configurations
+
+File `model_configs.xlsx` contains the arhitectures of models used in the work.
