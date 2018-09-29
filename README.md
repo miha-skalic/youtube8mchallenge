@@ -189,3 +189,9 @@ Training on a distillation dataset can be done using `train_distill.py` script. 
 # Model configurations
 
 File `model_configs.xlsx` contains the arhitectures of models used in the work.
+
+# Trained Model 
+
+Trained model as `.tar.gz` can be downloaded from [here](https://drive.google.com/open?id=1hrHOWc_3xFk1WofTnimq8icjzJ-k9pnh).
+See `inference.py` for sample usage of the model. Folder `feature_extractor` contains information on 
+preprocessing custom videos. 
