@@ -7,6 +7,20 @@ The repository is a fork of [google's repository](https://github.com/google/yout
 This readme walks through a specific example to reproduce training, eval, distillation, quantization, graph combination for a single model type.
 
 
+## Citation
+
+```
+@inproceedings{skalic2018building,
+  title={Building A Size Constrained Predictive Models for Video Classification},
+  author={Skalic, Miha and Austin, David},
+  booktitle={European Conference on Computer Vision},
+  pages={297--305},
+  year={2018},
+  organization={Springer}
+}
+```
+
+
 ## Background
 
 All models herein were trained in single GPU mode and the instructions that follow will reproduce this step. The
